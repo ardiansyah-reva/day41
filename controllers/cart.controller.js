@@ -5,6 +5,7 @@ exports.getAllCart = async (req, res) => {
   try {
     const carts = await Cart.findAll();
     res.json({
+      code: 200,
       status: "success",
       data: carts,
     });
@@ -21,7 +22,10 @@ exports.getCartById = async (req, res) => {
     if (!cart)
       return res.status(404).json({ status: "error", message: "Cart not found" });
 
-    res.json({ status: "success", data: cart });
+    res.json({ 
+       code: 200,
+       status: "success",
+       data: cart });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -33,6 +37,7 @@ exports.createCart = async (req, res) => {
   try {
     const cart = await Cart.create(req.body);
     res.status(201).json({
+      code: 201,
       status: "success",
       message: "Cart created",
       data: cart,
@@ -52,6 +57,7 @@ exports.updateCart = async (req, res) => {
     await cart.update(req.body);
 
     res.json({
+      code: 200,
       status: "success",
       message: "Cart berhasil di-update",
       data: cart,
@@ -70,6 +76,7 @@ exports.deleteCart = async (req, res) => {
     if (!deleted) return res.status(404).json({ error: "Cart tidak ditemukan" });
 
     res.json({
+      code: 200,
       status: "success",
       message: `Cart id ${req.params.id} berhasil dihapus`,
     });

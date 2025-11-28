@@ -32,11 +32,11 @@ const Product = sequelize.define("Product", {
   },
   category_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
   },
   brand_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
   },
   created_at: {
     type: DataTypes.DATE,

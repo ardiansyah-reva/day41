@@ -7,6 +7,7 @@ exports.getAllUser = async (req, res) => {
   try {
     const users = await User.findAll();
      res.json({
+      code: 200,
       status: "success",
       data: users,
     });
@@ -26,11 +27,13 @@ exports.getUserById = async (req, res) => {
 
     if (!user)
       return res.status(404).json({ 
+        code: 404,
         status: "error",
         message: "User not found"
      });
 
     res.json({
+      code: 200,
       status: "success",
       data: user,
     });
@@ -48,11 +51,14 @@ exports.updateUser = async (req, res) => {
     const user = await User.findByPk(req.params.id);
 
     if (!user)
-      return res.status(404).json({ error: "User tidak ditemukan" });
+      return res.status(404).json({
+       code: 404,
+       error: "User tidak ditemukan" });
 
     await user.update(req.body);
 
     res.json({
+      code: 200,
       status: "success",
       message: "User berhasil di-update",
       data: user,
@@ -73,9 +79,13 @@ exports.deleteUser = async (req, res) => {
     const deleted = await User.destroy({ where: { id } });
 
     if (!deleted)
-      return res.status(404).json({ error: "User tidak ditemukan" });
+       return res.status(404).json({
+      code: 404,
+       error: "User tidak ditemukan" 
+       });
 
     res.json({
+      code: 200,
       status: "success",
       message: `User id ${id} berhasil dihapus`,
     });

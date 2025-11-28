@@ -17,9 +17,16 @@ const Order = sequelize.define(
     },
 
     status: {
-      type: DataTypes.STRING(20),
+      type: DataTypes.ENUM(
+        "PENDING",
+        "PAID",
+        "SHIPPED",
+        "DELIVERED",
+        "COMPLETED",
+        "CANCELED"
+      ),
       allowNull: false,
-      defaultValue: "pending",
+      defaultValue: "PENDING",
     },
 
     total_amount: {
@@ -49,7 +56,7 @@ const Order = sequelize.define(
   },
   {
     tableName: "orders",
-    timestamps: false, // karena lo pakai created_at & updated_at manual
+    timestamps: false,
   }
 );
 

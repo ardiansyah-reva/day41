@@ -1,10 +1,11 @@
-const Order = require("../models/order");
+const Order = require("../models/Order");
 
 // GET semua order
 exports.getAllOrder = async (req, res) => {
   try {
     const orders = await Order.findAll();
     res.json({
+      code: 200,
       status: "success",
       data: orders,
     });
@@ -21,7 +22,10 @@ exports.getOrderById = async (req, res) => {
     if (!order)
       return res.status(404).json({ status: "error", message: "order not found" });
 
-    res.json({ status: "success", data: order });
+    res.json({
+       code: 200,
+       status: "success",
+       data: order });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -33,6 +37,7 @@ exports.createOrder = async (req, res) => {
   try {
     const order = await Order.create(req.body);
     res.status(201).json({
+      code: 201,
       status: "success",
       message: "order created",
       data: order,
@@ -52,6 +57,7 @@ exports.updateOrder = async (req, res) => {
     await order.update(req.body);
 
     res.json({
+      code: 200,
       status: "success",
       message: "order berhasil di-update",
       data: order,
@@ -70,6 +76,7 @@ exports.deleteOrder = async (req, res) => {
     if (!deleted) return res.status(404).json({ error: "order tidak ditemukan" });
 
     res.json({
+      code: 200,
       status: "success",
       message: `order id ${req.params.id} berhasil dihapus`,
     });
