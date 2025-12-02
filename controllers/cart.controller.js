@@ -1,4 +1,4 @@
-const Cart = require("../models/cart");
+const Cart = require("../models/Cart");
 
 // GET semua carts
 exports.getAllCart = async (req, res) => {

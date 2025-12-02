@@ -1,38 +1,99 @@
 
 // product.controller.js
-const { Op } = require("sequelize");
-const Product = require("../models/Product");
+const { Product, Category, Brand, ProductMedia } = require("../models");
 
-// get all produk + SEARCH
+/**
+ * GET all products + search + filter + pagination
+ */
 exports.getAllProducts = async (req, res) => {
   try {
-    const search = req.query.search || ""; // ambil ?search=
-    
-    const products = await Product.findAll({
-      where: {
-        name: {
-          [Op.like]: `%${search}%`,
-        },
-      },
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      category_id,
+      brand_id,
+      min_price,
+      max_price,
+      sort = "latest"
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    const where = {};
+
+    // Search
+    if (search) {
+      where.name = { [Op.iLike]: `%${search}%` };
+    }
+
+    // Filter category
+    if (category_id) where.category_id = category_id;
+
+    // Filter brand
+    if (brand_id) where.brand_id = brand_id;
+
+    // Price range
+    if (min_price || max_price) {
+      where.price = {};
+      if (min_price) where.price[Op.gte] = min_price;
+      if (max_price) where.price[Op.lte] = max_price;
+    }
+
+    // Sorting
+    const sortOption = {
+      latest: ["created_at", "DESC"],
+      oldest: ["created_at", "ASC"],
+      expensive: ["price", "DESC"],
+      cheap: ["price", "ASC"],
+    };
+
+    const order = [sortOption[sort] || sortOption.latest];
+
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order,
+      include: [
+        { model: Category, as: "category" },
+        { model: Brand, as: "brand" },
+        { model: ProductMedia, as: "media" },
+      ],
     });
 
-    res.json({
+    return res.json({
       code: 200,
       status: "success",
-      data: products,
+      total: count,
+      page: Number(page),
+      limit: Number(limit),
+      data: rows,
     });
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ status: "error", message: "Server error" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      code: 500,
+      status: "error",
+      message: "Server error",
+    });
   }
 };
 
 
-// get produk byid
+/**
+ * GET product by ID
+ */
 exports.getProductById = async (req, res) => {
   try {
-    const product = await Product.findByPk(req.params.id);
+    const product = await Product.findByPk(req.params.id, {
+      include: [
+        { model: Category, as: "category" },
+        { model: Brand, as: "brand" },
+        { model: ProductMedia, as: "media" },
+      ]
+    });
 
     if (!product) {
       return res.status(404).json({
@@ -42,16 +103,22 @@ exports.getProductById = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       code: 200,
       status: "success",
       data: product,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ status: "error", message: "Server error" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      code: 500,
+      status: "error",
+      message: "Server error",
+    });
   }
 };
+
 
 // create produk
 exports.createProduct = async (req, res) => {
