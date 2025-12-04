@@ -1,16 +1,6 @@
-// const express = require("express");
-// const router = express.Router();
 
-// // GET orders
-// router.get("/", (req, res) => {
-//   res.json({
-//     message: "GET all orders (route working)",
-//   });
-// });
 
-// module.exports = router;
-
-// routes/product.routes.js
+// routes/order.routes.js
 
 const express = require("express");
 const router = express.Router();

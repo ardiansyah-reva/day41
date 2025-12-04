@@ -8,6 +8,12 @@ exports.register = async (req, res) => {
   const { nickname, email, password } = req.body;
 
   try {
+    // ✅ TAMBAH 3 BARIS INI (VALIDASI PASSWORD)
+    if (!password || password.length < 8) {
+      return res.status(400).json({ message: "Password minimal 8 karakter" });
+    }
+    // ✅ SAMPAI SINI
+
     if (!email || !password)
       return res.status(400).json({ message: "Email & password wajib diisi" });
 
@@ -53,7 +59,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "7d" } // ✅ GANTI "1h" JADI "7d"
     );
 
     res.json({

@@ -1,19 +1,11 @@
 const { Cart, CartItem, Product, ProductMedia } = require("../models");
-const redis = require("../utils/redis"); // pastikan lu punya file redis.js
-const { applyVoucher } = require("./voucherService");
+const sequelize = require("../db");
 
 class CartService {
   // --------------------------------------------------------
-  // GET / CREATE CART (Cache Redis + Database)
+  // GET / CREATE CART
   // --------------------------------------------------------
   async getOrCreateCart(userId) {
-    const redisKey = `cart:${userId}`;
-
-    // 1. Cek cart di Redis dulu
-    const cached = await redis.get(redisKey);
-    if (cached) return JSON.parse(cached);
-
-    // 2. Kalo ngga ada → ambil dari DB
     let cart = await Cart.findOne({
       where: { user_id: userId },
       include: [
@@ -31,14 +23,11 @@ class CartService {
       ],
     });
 
-    // 3. Jika tidak ada, buat cart baru
+    // Jika tidak ada, buat cart baru
     if (!cart) {
       cart = await Cart.create({ user_id: userId });
       cart.items = [];
     }
-
-    // 4. Simpan ke Redis (expire 7 hari)
-    await redis.setEx(redisKey, 60 * 60 * 24 * 7, JSON.stringify(cart));
 
     return cart;
   }
@@ -50,14 +39,26 @@ class CartService {
     const cart = await this.getOrCreateCart(userId);
     const product = await Product.findByPk(productId);
 
-    if (!product) throw new Error("Product not found");
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    // ✅ Cek stok sebelum tambah ke cart
+    if (product.stock < quantity) {
+      throw new Error(`Stock not enough. Available: ${product.stock}`);
+    }
 
     let item = await CartItem.findOne({
       where: { cart_id: cart.id, product_id: productId },
     });
 
     if (item) {
-      item.quantity += quantity;
+      // ✅ Cek stok untuk quantity baru
+      const newQuantity = item.quantity + quantity;
+      if (product.stock < newQuantity) {
+        throw new Error(`Stock not enough. Available: ${product.stock}`);
+      }
+      item.quantity = newQuantity;
       await item.save();
     } else {
       item = await CartItem.create({
@@ -67,9 +68,10 @@ class CartService {
       });
     }
 
-    await this.refreshCache(userId);
-
-    return { message: "Item added", item };
+    return { 
+      message: "Item added to cart", 
+      item 
+    };
   }
 
   // --------------------------------------------------------
@@ -80,20 +82,30 @@ class CartService {
 
     const item = await CartItem.findOne({
       where: { cart_id: cart.id, product_id: productId },
+      include: [{ model: Product, as: "product" }]
     });
 
-    if (!item) throw new Error("Item not found");
+    if (!item) {
+      throw new Error("Item not found in cart");
+    }
 
     if (quantity <= 0) {
       await item.destroy();
-    } else {
-      item.quantity = quantity;
-      await item.save();
+      return { message: "Item removed from cart" };
     }
 
-    await this.refreshCache(userId);
+    // ✅ Cek stok sebelum update
+    if (item.product.stock < quantity) {
+      throw new Error(`Stock not enough. Available: ${item.product.stock}`);
+    }
 
-    return { message: "Item updated", item };
+    item.quantity = quantity;
+    await item.save();
+
+    return { 
+      message: "Cart item updated", 
+      item 
+    };
   }
 
   // --------------------------------------------------------
@@ -102,79 +114,115 @@ class CartService {
   async removeItem(userId, productId) {
     const cart = await this.getOrCreateCart(userId);
 
-    await CartItem.destroy({
+    const deleted = await CartItem.destroy({
       where: { cart_id: cart.id, product_id: productId },
     });
 
-    await this.refreshCache(userId);
+    if (!deleted) {
+      throw new Error("Item not found in cart");
+    }
 
-    return { message: "Item removed" };
+    return { message: "Item removed from cart" };
   }
 
   // --------------------------------------------------------
-  // APPLY VOUCHER
+  // GET CART TOTAL
   // --------------------------------------------------------
-  async applyVoucher(userId, voucherCode) {
+  async getCartTotal(userId) {
     const cart = await this.getOrCreateCart(userId);
 
     const total = cart.items.reduce(
-      (sum, item) => sum + item.quantity * item.product.price,
+      (sum, item) => sum + (item.quantity * item.product.price),
       0
     );
 
-    const discount = await applyVoucher(voucherCode, total);
-
     return {
-      originalTotal: total,
-      discount,
-      finalTotal: total - discount,
+      subtotal: total,
+      items: cart.items.length,
+      cart: cart
     };
   }
 
   // --------------------------------------------------------
-  // AUTO REDUCE STOCK ON CHECKOUT
+  // CHECKOUT WITH TRANSACTION (AMAN!)
   // --------------------------------------------------------
   async checkout(userId) {
-    const cart = await this.getOrCreateCart(userId);
+    const transaction = await sequelize.transaction();
 
-    for (const item of cart.items) {
-      const product = await Product.findByPk(item.product_id);
+    try {
+      const cart = await Cart.findOne({
+        where: { user_id: userId },
+        include: [
+          {
+            model: CartItem,
+            as: "items",
+            include: [{ model: Product, as: "product" }],
+          },
+        ],
+        transaction
+      });
 
-      if (product.stock < item.quantity) {
-        throw new Error(`Stock not enough for product: ${product.name}`);
+      if (!cart || cart.items.length === 0) {
+        throw new Error("Cart is empty");
       }
 
-      product.stock -= item.quantity;
-      await product.save();
+      // ✅ Cek stok semua item dulu sebelum kurangi
+      for (const item of cart.items) {
+        const product = await Product.findByPk(item.product_id, { 
+          transaction,
+          lock: true // ✅ Lock row untuk prevent race condition
+        });
+
+        if (!product) {
+          throw new Error(`Product ${item.product_id} not found`);
+        }
+
+        if (product.stock < item.quantity) {
+          throw new Error(`Stock not enough for: ${product.name}. Available: ${product.stock}`);
+        }
+      }
+
+      // ✅ Kurangi stok setelah semua dicek
+      for (const item of cart.items) {
+        const product = await Product.findByPk(item.product_id, { transaction });
+        product.stock -= item.quantity;
+        await product.save({ transaction });
+      }
+
+      // ✅ Hapus cart items
+      await CartItem.destroy({ 
+        where: { cart_id: cart.id },
+        transaction 
+      });
+
+      await transaction.commit();
+
+      return { 
+        message: "Checkout success! Stock updated.",
+        items: cart.items.map(item => ({
+          product: item.product.name,
+          quantity: item.quantity,
+          price: item.product.price
+        }))
+      };
+
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
-
-    await CartItem.destroy({ where: { cart_id: cart.id } });
-    await this.refreshCache(userId);
-
-    return { message: "Checkout success ❗ Stok otomatis dikurangi" };
   }
 
   // --------------------------------------------------------
-  // MERGE GUEST CART → USER CART
+  // CLEAR CART
   // --------------------------------------------------------
-  async mergeGuestCart(userId, guestItems = []) {
+  async clearCart(userId) {
     const cart = await this.getOrCreateCart(userId);
 
-    for (const g of guestItems) {
-      await this.addItem(userId, g.product_id, g.quantity);
-    }
+    await CartItem.destroy({ 
+      where: { cart_id: cart.id } 
+    });
 
-    await this.refreshCache(userId);
-
-    return { message: "Guest cart merged", cart };
-  }
-
-  // --------------------------------------------------------
-  // CART EXPIRATION (hapus otomatis setelah 7 hari tidak dipakai)
-  // --------------------------------------------------------
-  async refreshCache(userId) {
-    const cart = await this.getOrCreateCart(userId);
-    await redis.setEx(`cart:${userId}`, 60 * 60 * 24 * 7, JSON.stringify(cart));
+    return { message: "Cart cleared" };
   }
 }
 

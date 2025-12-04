@@ -1,13 +1,24 @@
+// routes/user.routes.js
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/user.controller");
 
-// CRUD routes
+// Middleware: User hanya bisa edit/hapus dirinya sendiri
+const checkOwnership = (req, res, next) => {
+  if (req.user.id !== parseInt(req.params.id)) {
+    return res.status(403).json({
+      code: 403,
+      status: "error",
+      message: "Anda tidak bisa mengakses data user lain"
+    });
+  }
+  next();
+};
 
-router.get("/", userController.getAllUser); // GET all
+// CRUD routes
+router.get("/", userController.getAllUser); // GET all (admin only)
 router.get("/:id", userController.getUserById); // GET one
-// router.post("/", productController.createP); // CREATE
-router.put("/:id", userController.updateUser); // UPDATE
-router.delete("/:id", userController.deleteUser); // DELETE
+router.put("/:id", checkOwnership, userController.updateUser); // UPDATE (hanya diri sendiri)
+router.delete("/:id", checkOwnership, userController.deleteUser); // DELETE (hanya diri sendiri)
 
 module.exports = router;

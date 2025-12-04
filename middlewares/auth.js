@@ -1,18 +1,3 @@
-// exports.requireAuth = (req, res, next) => {
-//   const token = req.headers.authorization;
-
-//   if (!token) {
-//     return res.status(401).json({
-//       status: "error",
-//       message: "Tidak diizinkan. Token diperlukan.",
-//     });
-//   }
-
-//   req.user = { id: 1, full_name: "Pengguna Autentikasi Dummy" };
-
-//   next();
-// };
-
 
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
@@ -37,6 +22,11 @@ module.exports = async (req, res, next) => {
     next();
 
   } catch (error) {
-    return res.status(401).json({ message: "Token invalid" });
+    // ✅ GANTI BAGIAN INI (dari 1 baris jadi 5 baris)
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "Token sudah kadaluarsa, silakan login lagi" });
+    }
+    return res.status(401).json({ message: "Token tidak valid" });
+    // ✅ SAMPAI SINI
   }
 };

@@ -1,36 +1,43 @@
-// backend/controllers/user.controller.js
-
+// controllers/user.controller.js
 const User = require("../models/User");
 
-// GET semua user
+// GET all users
 exports.getAllUser = async (req, res) => {
   try {
-    const users = await User.findAll();
-     res.json({
+    const users = await User.findAll({
+      attributes: { exclude: ['password'] } // ✅ Jangan return password
+    });
+    
+    res.json({
       code: 200,
       status: "success",
       data: users,
     });
    
-  } catch (err) {
-    console.error(error);
-    res.status(500).json({ error: err.message });
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ 
+      code: 500,
+      status: "error",
+      message: err.message 
+    });
   }
 };
-
-
 
 // GET user by ID
 exports.getUserById = async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id);
+    const user = await User.findByPk(req.params.id, {
+      attributes: { exclude: ['password'] }
+    });
 
-    if (!user)
+    if (!user) {
       return res.status(404).json({ 
         code: 404,
         status: "error",
         message: "User not found"
-     });
+      });
+    }
 
     res.json({
       code: 200,
@@ -38,38 +45,53 @@ exports.getUserById = async (req, res) => {
       data: user,
     });
 
-  } catch (err) {
-    console.error(error);
-    res.status(500).json({ error: err.message });
+  } catch (err) { //  FIXED: err bukan error
+    console.error(err);
+    res.status(500).json({ 
+      code: 500,
+      status: "error",
+      message: err.message 
+    });
   }
 };
-
 
 // UPDATE user
 exports.updateUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
 
-    if (!user)
+    if (!user) {
       return res.status(404).json({
-       code: 404,
-       error: "User tidak ditemukan" });
+        code: 404,
+        status: "error",
+        message: "User tidak ditemukan" 
+      });
+    }
 
-    await user.update(req.body);
+    //  Don't allow password update through this endpoint
+    const { password, ...updateData } = req.body;
+
+    await user.update(updateData);
 
     res.json({
       code: 200,
       status: "success",
       message: "User berhasil di-update",
-      data: user,
+      data: {
+        ...user.toJSON(),
+        password: undefined // Remove password from response
+      },
     });
 
-  } catch (err) {
-    console.error(error)
-    res.status(500).json({ error: err.message });
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ 
+      code: 500,
+      status: "error",
+      message: err.message 
+    });
   }
 };
-
 
 // DELETE user
 exports.deleteUser = async (req, res) => {
@@ -78,11 +100,13 @@ exports.deleteUser = async (req, res) => {
   try {
     const deleted = await User.destroy({ where: { id } });
 
-    if (!deleted)
-       return res.status(404).json({
-      code: 404,
-       error: "User tidak ditemukan" 
-       });
+    if (!deleted) {
+      return res.status(404).json({
+        code: 404,
+        status: "error",
+        message: "User tidak ditemukan" 
+      });
+    }
 
     res.json({
       code: 200,
@@ -91,6 +115,11 @@ exports.deleteUser = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ 
+      code: 500,
+      status: "error",
+      message: err.message 
+    });
   }
 };

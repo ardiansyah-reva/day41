@@ -1,3 +1,5 @@
+//middlewares/validate.js
+
 exports.validate = (rules) => {
   return (req, res, next) => {
     const errors = [];

@@ -1,6 +1,6 @@
-
 // product.controller.js
 const { Product, Category, Brand, ProductMedia } = require("../models");
+const { Op } = require("sequelize"); // ✅ ADDED - PENTING!
 
 /**
  * GET all products + search + filter + pagination
@@ -19,7 +19,6 @@ exports.getAllProducts = async (req, res) => {
     } = req.query;
 
     const offset = (page - 1) * limit;
-
     const where = {};
 
     // Search
@@ -52,8 +51,8 @@ exports.getAllProducts = async (req, res) => {
 
     const { count, rows } = await Product.findAndCountAll({
       where,
-      limit,
-      offset,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
       order,
       include: [
         { model: Category, as: "category" },
@@ -68,6 +67,7 @@ exports.getAllProducts = async (req, res) => {
       total: count,
       page: Number(page),
       limit: Number(limit),
+      totalPages: Math.ceil(count / limit),
       data: rows,
     });
 
@@ -80,7 +80,6 @@ exports.getAllProducts = async (req, res) => {
     });
   }
 };
-
 
 /**
  * GET product by ID
@@ -119,8 +118,7 @@ exports.getProductById = async (req, res) => {
   }
 };
 
-
-// create produk
+// CREATE product
 exports.createProduct = async (req, res) => {
   try {
     const product = await Product.create(req.body);
@@ -133,18 +131,22 @@ exports.createProduct = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: "error", message: "Server error" });
+    res.status(500).json({ 
+      code: 500,
+      status: "error", 
+      message: "Server error" 
+    });
   }
 };
 
-
-// update produk id
+// UPDATE product
 exports.updateProduct = async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
 
     if (!product) {
       return res.status(404).json({
+        code: 404,
         status: "error",
         message: "Product not found",
       });
@@ -153,24 +155,29 @@ exports.updateProduct = async (req, res) => {
     await product.update(req.body);
 
     res.json({
+      code: 200,
       status: "success",
       message: "Product updated",
       data: product,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: "error", message: "Server error" });
+    res.status(500).json({ 
+      code: 500,
+      status: "error", 
+      message: "Server error" 
+    });
   }
 };
 
-
-// delete produk
+// DELETE product
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
 
     if (!product) {
       return res.status(404).json({
+        code: 404,
         status: "error",
         message: "Product not found",
       });
@@ -185,6 +192,10 @@ exports.deleteProduct = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: "error", message: "Server error" });
+    res.status(500).json({ 
+      code: 500,
+      status: "error", 
+      message: "Server error" 
+    });
   }
 };
