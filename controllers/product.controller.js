@@ -121,23 +121,45 @@ exports.getProductById = async (req, res) => {
 // CREATE product
 exports.createProduct = async (req, res) => {
   try {
-    const product = await Product.create(req.body);
+    const { media, ...productData } = req.body;
+
+    // 1. Buat product
+    const product = await Product.create(productData);
+
+    // 2. Simpan media kalau ada
+    if (media && Array.isArray(media) && media.length > 0) {
+      for (const m of media) {
+        await ProductMedia.create({
+          product_id: product.id,
+          media_type: m.type || "image",
+          url: m.url
+        });
+      }
+    }
+
+    // 3. Ambil ulang product + media
+    const fullProduct = await Product.findByPk(product.id, {
+      include: [{ model: ProductMedia, as: "media" }]
+    });
 
     res.status(201).json({
       code: 201,
       status: "success",
       message: "Product created",
-      data: product,
+      data: fullProduct
     });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ 
+    console.error("CREATE PRODUCT ERROR:", error);
+    res.status(500).json({
       code: 500,
-      status: "error", 
-      message: "Server error" 
+      status: "error",
+      message: "Server error"
     });
   }
 };
+
+
 
 // UPDATE product
 exports.updateProduct = async (req, res) => {

@@ -1,15 +1,15 @@
-// routes/Shipment.routes.js
-
 const express = require("express");
 const router = express.Router();
 const shipmentController = require("../controllers/shipment.controller");
+const auth = require("../middlewares/auth");
 
-// CRUD routes
+router.use(auth);
 
-router.get("/", shipmentController.getAllShipment); // GET all
-router.get("/:id", shipmentController.getShipmentById); // GET one
-router.post("/", shipmentController.createShipment); // CREATE
-router.put("/:id", shipmentController.updateShipment); // UPDATE
-router.delete("/:id", shipmentController.deleteShipment); // DELETE
+router.get("/", shipmentController.getAllShipment);
+router.get("/:id", shipmentController.getShipmentById);
+
+router.post("/", shipmentController.createShipment);
+router.put("/:id", shipmentController.updateShipment);
+router.delete("/:id", shipmentController.deleteShipment);
 
 module.exports = router;

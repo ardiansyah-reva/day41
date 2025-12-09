@@ -1,17 +1,23 @@
-
-
-// routes/order.routes.js
-
 const express = require("express");
 const router = express.Router();
 const orderController = require("../controllers/order.controller");
+const auth = require("../middlewares/auth");
 
-// CRUD routes
+router.use(auth);
 
-router.get("/", orderController.getAllOrder); // GET all
-router.get("/:id", orderController.getOrderById); // GET one
-router.post("/", orderController.createOrder); // CREATE
-router.put("/:id", orderController.updateOrder); // UPDATE
-router.delete("/:id", orderController.deleteOrder); // DELETE
+// Lihat semua order user
+router.get("/", orderController.getAllOrder);
+
+// Buat order
+router.post("/", orderController.createOrder);
+
+// Lihat detail order milik user
+router.get("/:id", orderController.getOrderById);
+
+// Update order (kalau perlu)
+router.put("/:id", orderController.updateOrder);
+
+// Hapus order (opsional)
+router.delete("/:id", orderController.deleteOrder);
 
 module.exports = router;

@@ -31,7 +31,7 @@ Product.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
 Category.hasMany(Product, { foreignKey: 'category_id', as: 'products' });
 
 Product.belongsTo(Brand, { foreignKey: 'brand_id', as: 'brand' });
-Brand.hasMany(Product, { foreignKey: 'brand_id', as: 'products' });
+Brand.hasMany(Product, { foreignKey: 'brand_id', as: 'products' }); 
 
 Product.hasMany(ProductMedia, { foreignKey: 'product_id', as: 'media' });
 ProductMedia.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
